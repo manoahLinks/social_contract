@@ -1,16 +1,21 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-import "./NFTFactory.sol";
+import "./INFTFactory.sol";
 
 contract SocialContract {
     
+    address owner;
+    address NFTAddress;
+
     event registerSuccessful(uint256 _id , address _newUser);
     event createPostSuccessful(uint256 _id, address _creator);
     event createSuccessful(uint256 _id);
 
-    constructor() {
- 
+    constructor(address _factoryAddress) {
+        owner = msg.sender;
+        NFTAddress = _factoryAddress;
+        INFTFactory(_factoryAddress).createNewNFT("SampleToken", "SMPT", msg.sender);
     }
 
     struct User {
@@ -29,6 +34,14 @@ contract SocialContract {
     struct Post {
         uint256 id;
         string content;
+        uint256 likes;
+        string tokenUri;
+        Comments[] Comments;
+    }
+
+    struct Comments {
+        uint256 id;
+        string content;
     }
 
     uint256 userCount;
@@ -38,8 +51,18 @@ contract SocialContract {
     mapping(address => User) users;
     mapping(uint256 => Group) groups;
     mapping(uint256 => Post) posts;
+    mapping(uint256 => mapping(address => bool)) hasLiked;
     mapping(uint256 => mapping(address => bool)) isGroupModerator;
 
+    modifier onlyRegisteredUser () {
+        require(users[msg.sender].isRegistered == false, "You have already registered");
+        _;
+    }
+
+    modifier onlyGroupAdmin (uint256 _groupId) {
+        require(isGroupModerator[_groupId][msg.sender], "Not Moderator");
+        _;
+    }
 
     // userFunctions
     function registerUser (string memory _name) external {
@@ -47,8 +70,6 @@ contract SocialContract {
         uint256 _userId = userCount + 1;
 
         require(msg.sender != address(0), "addr zero cant call functions");
-
-        require(users[msg.sender].isRegistered == false, "You have already registered");
 
         User storage _user = users[msg.sender];
 
@@ -61,33 +82,45 @@ contract SocialContract {
         userCount++;
     }
 
-    function createPost (string memory _content) external {
+    function createPost (string memory _content, string memory _tokenUri) external onlyRegisteredUser {
 
         uint256 _postId = postCount + 1;
 
         require(msg.sender != address(0), "addr zero cant call functions");
 
-        require(users[msg.sender].isRegistered == true, "You are not a registered user");
+        INFTFactory(NFTAddress).mintNft(_postId, _tokenUri);
 
         Post storage _post = posts[_postId];
 
         _post.id = _postId;
         _post.content = _content;
+        _post.tokenUri = _tokenUri;
 
         users[msg.sender].posts.push(_postId);
 
-        emit createPostSuccessful(_postId, msg.sender);        
+        emit createPostSuccessful(_postId, msg.sender); 
+
         postCount++;
     }
 
+    // 
+    function likePost (uint256 _postId) external onlyRegisteredUser {
+
+        require(msg.sender != address(0), "addr zero cant call functions");
+
+        require(!hasLiked[_postId][msg.sender], "liked already");
+        
+        hasLiked[_postId][msg.sender] = true;
+
+        posts[_postId].likes ++;
+    } 
+
     // group functions
-    function createGroup (string memory _title, string memory _description) external {
+    function createGroup (string memory _title, string memory _description) external onlyRegisteredUser {
         
         uint256 _groupId = groupCount + 1;
 
         require(msg.sender != address(0), "addr zero cant call functions");
-
-        require(users[msg.sender].isRegistered == true, "You are not a registered user");
 
         Group storage _group = groups[_groupId];
 
@@ -99,6 +132,19 @@ contract SocialContract {
         groupCount++;
 
         emit createSuccessful(_groupId);
+    }
+
+    // getter functions
+    function getPost (uint256 _postId) external view returns (Post memory) {
+        return posts[_postId];
+    }
+
+    function getGroup (uint256 _groupId) external view returns (Group memory) {
+        return groups[_groupId];
+    }
+
+    function getUser (address _userAddress) external view returns (User memory) {
+        return users[_userAddress];
     }
 
 }
