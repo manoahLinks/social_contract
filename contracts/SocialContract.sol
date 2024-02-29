@@ -6,16 +6,15 @@ import "./INFTFactory.sol";
 contract SocialContract {
     
     address owner;
-    address NFTAddress;
+    address immutable NFTAddress = 0x75241D97BA5CB8dd673572CBBCB006Bca589F26a;
 
     event registerSuccessful(uint256 _id , address _newUser);
     event createPostSuccessful(uint256 _id, address _creator);
     event createSuccessful(uint256 _id);
 
-    constructor(address _factoryAddress) {
+    constructor() {
         owner = msg.sender;
-        NFTAddress = _factoryAddress;
-        INFTFactory(_factoryAddress).createNewNFT("SampleToken", "SMPT", msg.sender);
+        INFTFactory(NFTAddress).createNewNFT("SampleToken", "SMPT", msg.sender);
     }
 
     struct User {
@@ -40,8 +39,8 @@ contract SocialContract {
     }
 
     struct Comments {
-        uint256 id;
         string content;
+        address commentor;
     }
 
     uint256 userCount;
@@ -114,6 +113,16 @@ contract SocialContract {
 
         posts[_postId].likes ++;
     } 
+
+    // function addComment (uint256 _postId, string memory _comment) external onlyRegisteredUser {
+    //     require(msg.sender != address(0), "addr zero cant call functions");
+
+    //     require(_comment != '', "comment cant be empty");
+
+    //     // Comments storage _comment = Comments(_comment, msg.sender);
+
+    //     // posts[_postId].push(Comments(_comment, msg.sender));
+    // } 
 
     // group functions
     function createGroup (string memory _title, string memory _description) external onlyRegisteredUser {
